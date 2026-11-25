@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Buscaperuano - Consulta DNI (RENIEC) y RUC (SUNAT)</title>
+    <style>
+        :root {
+            --primary: #d91023;
+            --primary-dark: #a80b1a;
+            --bg: #f4f6f9;
+            --card: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 2.5rem 1rem; }
+        .container { width: 100%; max-width: 680px; background: var(--card); border-radius: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); overflow: hidden; border: 1px solid var(--border); }
+        .header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; padding: 1.75rem 2rem; text-align: center; }
+        .header h1 { font-size: 1.6rem; margin-bottom: 0.35rem; }
+        .header p { font-size: 0.95rem; opacity: 0.9; }
+        .body { padding: 2rem; }
+        .tabs { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
+        .tab { flex: 1; padding: 0.8rem; border: 2px solid var(--border); background: #f8fafc; border-radius: 8px; font-weight: 600; font-size: 0.95rem; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+        .tab.active { border-color: var(--primary); background: #fff1f2; color: var(--primary); }
+        .search-box { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
+        .search-box input { flex: 1; padding: 0.85rem 1rem; font-size: 1rem; border: 1px solid var(--border); border-radius: 8px; outline: none; }
+        .search-box input:focus { border-color: var(--primary); }
+        .search-box button { padding: 0 1.5rem; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+        .search-box button:hover { background: var(--primary-dark); }
+        .search-box button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .status { text-align: center; padding: 1rem; border-radius: 8px; display: none; margin-bottom: 1rem; font-weight: 500; }
+        .status.error { display: block; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .status.loading { display: block; background: #f1f5f9; color: #334155; }
+        .result-card { display: none; border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; background: #fcfcfd; }
+        .result-card.visible { display: block; }
+        .result-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); color: var(--primary-dark); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.85rem; }
+        .field { background: #fff; padding: 0.75rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); }
+        .field-label { font-size: 0.75rem; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 0.25rem; }
+        .field-value { font-size: 0.98rem; font-weight: 600; color: var(--text); word-break: break-word; }
+        .raw-toggle { margin-top: 1rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+        pre { margin-top: 0.5rem; background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px; font-size: 0.82rem; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🇵🇪 Buscaperuano</h1>
+            <p>Consulta en línea de datos por DNI (RENIEC) y RUC (SUNAT)</p>
+        </div>
+        <div class="body">
+            <div class="tabs">
+                <button type="button" class="tab active" id="tab-dni" onclick="cambiarServicio('dni')">Consulta por DNI (8 dígitos)</button>
+                <button type="button" class="tab" id="tab-ruc" onclick="cambiarServicio('ruc')">Consulta por RUC (11 dígitos)</button>
+            </div>
+            <form class="search-box" onsubmit="consultar(event)">
+                <input type="text" id="identificador" placeholder="Ingrese número de DNI (ej. 46027897)" maxlength="8" pattern="[0-9]+" required />
+                <button type="submit" id="btn-buscar">Buscar</button>
+            </form>
+            <div id="status" class="status"></div>
+            <div id="result-card" class="result-card">
+                <div class="result-title" id="result-title">Datos encontrados</div>
+                <div class="grid" id="result-grid"></div>
+                <details class="raw-toggle">
+                    <summary>Ver respuesta JSON del API</summary>
+                    <pre id="raw-json"></pre>
+                </details>
+            </div>
+        </div>
+    </div>
+    <script>
+        let servicioActual = 'dni';
+        function cambiarServicio(servicio) {
+            servicioActual = servicio;
+            document.getElementById('tab-dni').classList.toggle('active', servicio === 'dni');
+            document.getElementById('tab-ruc').classList.toggle('active', servicio === 'ruc');
+            const input = document.getElementById('identificador');
+            input.value = '';
+            input.placeholder = servicio === 'dni' ? 'Ingrese número de DNI (ej. 46027897)' : 'Ingrese número de RUC (ej. 20131312955)';
+            input.maxLength = servicio === 'dni' ? 8 : 11;
+            document.getElementById('status').className = 'status';
+            document.getElementById('result-card').classList.remove('visible');
+            input.focus();
+        }
+        function mostrarCampo(etiqueta, valor) {
+            if (!valor || valor === '-') return '';
+            return `<div class="field"><div class="field-label">${etiqueta}</div><div class="field-value">${valor}</div></div>`;
+        }
+        async function consultar(e) {
+            e.preventDefault();
+            const identificador = document.getElementById('identificador').value.trim();
+            const statusEl = document.getElementById('status');
+            const resultCard = document.getElementById('result-card');
+            const resultGrid = document.getElementById('result-grid');
+            const rawJson = document.getElementById('raw-json');
+            const btn = document.getElementById('btn-buscar');
+
+            if ((servicioActual === 'dni' && identificador.length !== 8) || (servicioActual === 'ruc' && identificador.length !== 11)) {
+                statusEl.textContent = servicioActual === 'dni' ? 'El DNI debe tener 8 dígitos.' : 'El RUC debe tener 11 dígitos.';
+                statusEl.className = 'status error';
+                resultCard.classList.remove('visible');
+                return;
+            }
+            statusEl.textContent = 'Consultando datos...';
+            statusEl.className = 'status loading';
+            resultCard.classList.remove('visible');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/api/buscar/${servicioActual}/${identificador}`);
+                const data = await response.json();
+                const info = data.datos || data;
+                rawJson.textContent = JSON.stringify(data, null, 2);
+
+                if (!info || info.error || (!info.nombre && !info.nombres && !info.razonSocial)) {
+                    statusEl.textContent = info?.error || 'No se encontraron datos para el documento ingresado.';
+                    statusEl.className = 'status error';
+                    return;
+                }
+                statusEl.className = 'status';
+                if (servicioActual === 'dni') {
+                    document.getElementById('result-title').textContent = 'Resultado de Consulta RENIEC (DNI)';
+                    resultGrid.innerHTML = [
+                        mostrarCampo('DNI', info.numeroDocumento || info.dni || identificador),
+                        mostrarCampo('Nombre Completo', info.nombre),
+                        mostrarCampo('Nombres', info.nombres),
+                        mostrarCampo('Apellido Paterno', info.apellidoPaterno || info.apellido_paterno),
+                        mostrarCampo('Apellido Materno', info.apellidoMaterno || info.apellido_materno)
+                    ].join('');
+                } else {
+                    document.getElementById('result-title').textContent = 'Resultado de Consulta SUNAT (RUC)';
+                    resultGrid.innerHTML = [
+                        mostrarCampo('RUC', info.numeroDocumento || info.ruc || identificador),
+                        mostrarCampo('Razón Social / Nombre', info.nombre || info.razonSocial),
+                        mostrarCampo('Estado', info.estado),
+                        mostrarCampo('Condición', info.condicion),
+                        mostrarCampo('Dirección', info.direccion),
+                        mostrarCampo('Departamento', info.departamento),
+                        mostrarCampo('Provincia', info.provincia),
+                        mostrarCampo('Distrito', info.distrito)
+                    ].join('');
+                }
+                resultCard.classList.add('visible');
+            } catch (err) {
+                statusEl.textContent = 'Error al conectar con el servidor.';
+                statusEl.className = 'status error';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

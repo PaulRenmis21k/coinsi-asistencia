@@ -1,0 +1,26 @@
+{
+  "name": "asistencia-coinsi",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sistema de control de asistencia para el congreso COINSI, con lectura de DNI, reportes PDF/CSV y respaldo local.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lucide-react": "^0.468.0",
+    "node-fetch": "^2.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}
