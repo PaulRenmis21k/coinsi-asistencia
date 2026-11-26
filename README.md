@@ -64,4 +64,4 @@ _Dependencias de desarollo_
 
 * Comenta a otros sobre este proyecto 📢.
 * Invitame un café ☕. 
-* Da las gracias públicamente 🤓.
+* Da las gracias públicamente 🤓."# coinsi-asistencia" 
